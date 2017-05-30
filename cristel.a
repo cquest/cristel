@@ -1,7 +1,7 @@
 ********************************
 *                              *
-* CRISTEL V 1.11  (C) Ch.QUEST *
-* --------------    23/9/85    *
+* CRISTEL V 1.14  (C) Ch.QUEST *
+* --------------    16/10/85   *
 *                              *
 *  LOGICIEL DE COMMUNICATION   *
 *                              *
@@ -280,8 +280,8 @@ INT       LDA FINBUF
           LDY #READCHAR
           BIT V1ON
           JSR ROM
+          JSR SCROLLR
           AND #$7F
-          STA $427
           PHA
           BIT V1OFF
           PLA
@@ -386,11 +386,11 @@ SEND2     LDA #0
           STA NBREP
           LDA CARSEND
           STA CAREP
-SEND3     LDY #SENDCHAR
-          PHA
+SEND3     PHA
+          JSR SCROLLS
           BIT V2ON
           PLA
-          STA $426
+          LDY #SENDCHAR
           JSR ROM
           BIT V2OFF
           JMP INT
@@ -399,6 +399,28 @@ SEND5     STA CARSEND
           LDA #0
           STA CAREP
           RTS
+*
+*
+*
+SCROLLS   PHA
+          LDY #0
+SCLOOP2   LDA $481,Y
+          STA $480,Y
+          INY
+          CPY #39
+          BNE SCLOOP2
+          PLA
+          JSR CONTROL
+          STA $4A7
+          RTS
+*
+*
+*
+CONTROL   AND #$7F
+          CMP #$1F
+          BMI CONRTS
+          ORA #$80
+CONRTS    RTS
 *
 *
 *
@@ -451,14 +473,26 @@ RECEIVED  BIT V1ON
           PHA
           BIT V1OFF
           PLA
-          AND #%01111111
-          STA $427
+          JSR SCROLLR
+          AND #$7F
           RTS
 ERROR     LDA #17
           JMP BASERR
 *
 *
 *
+SCROLLR   ORA #$80
+          PHA
+          LDY #0
+SCLOOP    LDA $401,Y
+          STA $400,Y
+          INY
+          CPY #39
+          BNE SCLOOP
+          PLA
+          JSR CONTROL
+          STA $427
+          RTS
 VALEUR    JSR $E6F8
           LDA $A1
           RTS
