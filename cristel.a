@@ -1,7 +1,7 @@
 ********************************
 *                              *
-* CRISTEL V 1.10  (C) Ch.QUEST *
-* --------------    26/7/85    *
+* CRISTEL V 1.11  (C) Ch.QUEST *
+* --------------     4/8/85    *
 *                              *
 *  LOGICIEL DE COMMUNICATION   *
 *                              *
@@ -16,7 +16,8 @@
 *
 *
           LST OFF
-          ORG $9000
+          ORG $89D0      ;(A CAUSE DU PLE)
+* (SINON ORG $9000)
 *
 * ADRESSES ROM ET PAGE ZERO UTILISEES
 *
@@ -98,7 +99,7 @@ VTAB:     = 162
 WAIT:     = 181
 XDRAW:    = 149
 LOAD:     = $B6
-ONERR:    = $A5
+DEL:      = $85
 *
 * COMMANDES ROM
 *
@@ -177,6 +178,7 @@ CARSEND   HEX 00
 CAREP     HEX 00
 NBREP     HEX 00
 NORPRINT  HEX 0000
+NOPAGE    HEX 00
 *
 * PRGM
 *
@@ -206,11 +208,12 @@ CMDNAME   DFB CLEAR:,COLOR:,DRAW:,END:,FLASH:,GET:,GR:
           DFB HCOLOR:,HOME:,POS:,INPUT:,INVERSE:,NORMAL:
           DFB TRACE:,NOTRACE:,PLOT:
           DFB PRINT:,READ:,SCALE:,STEP:,TEXT:,VTAB:,WAIT:,XDRAW:,LOAD:
+          DFB DEL:
 CMDADDR   DA CLEAR-1,COLOR-1,DRAW-1,END-1,FLASH-1,GET-1,GR-1
           DA HCOLOR-1,HOME-1,POS-1,INPUT-1,INVERSE-1,NORMAL-1
           DA TRACE-1,NOTRACE-1,PLOT-1
           DA PRINT-1,READ-1,SCALE-1,STEP-1,TEXT-1,VTAB-1,WAIT-1,XDRAW-1
-          DA LOAD-1
+          DA LOAD-1,DEL-1
 *
 * POINT D'ENTREE ROM
 *
@@ -249,8 +252,9 @@ END2PT    RTS
 *
 SENDESC   STA TEMP
           LDA #ESC
-          JSR SENDIT
+          JSR SEND5
           LDA TEMP
+          JMP SEND5
 SENDIT    STA CARSEND
           LDA XCOOR
           CMP #$FF
@@ -259,7 +263,7 @@ SENDIT    STA CARSEND
 SEND1     LDA CARSEND
           CMP CAREP
           BEQ REP1
-          LDA NBREP
+SEND6     LDA NBREP
           BEQ SEND2
           LDA NBREP
           CMP #1
@@ -287,6 +291,11 @@ SEND2     LDA #0
           STA CAREP
 SEND3     LDY #SENDCHAR
           JMP ROM
+SEND5     STA CARSEND
+          JSR SEND6
+          LDA #0
+          STA CAREP
+          RTS
 *
 *
 *
@@ -407,40 +416,53 @@ CLEAR     LDY #CLEANUP
 HOME      LDA #FF        ;EFFACE ECRAN MINITEL
           JSR SENDIT
           LDA #0
-          JSR VTABIN
-          LDA #CAN       ;EFFACE FIN DE LIGNE
-          JSR SENDIT
+          STA TEMP
+          JSR POS1
+          JSR DEL2
           LDA #RS        ;RETOUR 'HOME'
-          JMP SENDIT
+          JMP SEND5
 *
 *
 *
 VTAB      JSR VALEUR
-VTABIN    STA TEMP
+          STA TEMP
+POS1      LDA #1
+POSMNTL   STA TEMP2
           LDA #US
-          JSR SENDIT
+          JSR SEND5
           LDA TEMP
           CLC
           ADC #$40
-          JSR SENDIT
-          LDA #$41
-          JMP SENDIT
-*
-*
-*
-POS       LDA #US        ;COMMANDE VIDEOTEX DE POSITION
-          JSR SENDIT     ;ON L'ENVOIE
-          JSR VALEUR     ;RECHERCHE LE 'VTAB'
+          JSR SEND5
+          LDA TEMP2
           CLC
-          ADC #$40       ;CODE EN MNTL
-          JSR SENDIT     ;ENVOI
-          JSR CHKCOM     ;VIRGULE ?
-          JSR VALEUR     ;VALEUR 'HTAB'
-          CLC
-          ADC #$40       ;CODE EN MNTL
-          JSR SENDIT     ;ENVOI
-          RTS            ;C'EST FINI
+          ADC #$40
+          JMP SEND5
+*
+*
+*
+POS       JSR VALEUR
+          STA TEMP
+          JSR WAIT2PT
+          BEQ POS2
+          JSR CHKCOM
+          JSR VALEUR
+          JMP POSMNTL
+POS2      LDA #1
+          JMP POSMNTL
+*
+*
+*
+*
+*
+DEL       JSR POS
+DEL2      LDA #CAN
+          JMP SEND5
+*
+*
+*
 LOAD      JSR VALEUR
+          STA NOPAGE
           ASL
           ASL
           PHA
@@ -468,8 +490,30 @@ BLOAD     JSR MSGOUT
           HEX 0D04
           ASC 'BLOAD'
           HEX 00
+          LDX #1
+          JSR BANKSEL
           LDA #14
-          JMP PRINTROM
+          JSR PRINTROM
+          LDX #2
+          JMP BANKSEL
+*
+*
+*
+BANKSEL   TXA
+          CLC
+          ADC #$80
+          STA RAM+1
+          TAX
+          LDY NOPAGE
+          CPY #6
+          BMI RAM2
+          TXA
+          CLC
+          ADC #8
+          STA RAM+1
+RAM2      JSR RAM
+RAM       LDA $C080
+          RTS
 *
 *
 *
@@ -521,7 +565,7 @@ READLOOP  LDA TABHORL,Y
           STA BUFFER,Y
 READNEXT  DEY
           BPL READLOOP
-          LDA JOUR
+          LDA #JOUR
           JSR READHORL
           AND #$07
           ASL
@@ -552,7 +596,7 @@ HORL2     CPY #12
 HORL3     CLC
           ADC #$30
           RTS
-TABCAR    ASC ': /'
+TABCAR    ASC '- /'
 TABHORL   HEX 2524802322802120818181812827822A29822C2B
 TABJOUR   ASC 'DILUMAMEJEVESA'
 *
@@ -635,7 +679,9 @@ PLOT      JSR VALEUR
 *
 *
 *
-XDRAW     JSR BLOAD
+XDRAW     LDA #0
+          STA NOPAGE
+          JSR BLOAD
           JMP DRAWBIS
 *
 *
@@ -651,19 +697,19 @@ INPUT     JSR VALEUR
           JSR CHKCOM
           JSR POSINP
           LDA CARINP
-INPUTIN   JSR SENDIT
+INPUTIN   JSR SEND5
           LDA LEN
           CMP #1
           BEQ ONLY1
           LDA #REP
-          JSR SENDIT
+          JSR SEND5
           LDA LEN
           CLC
           ADC #$3F
-          JSR SENDIT
+          JSR SEND5
 ONLY1     JSR POSINP     ;CURSOR = ON
           LDA #CSRON
-          JSR SENDIT
+          JSR SEND5
           LDA #0
           STA LEN2
 WAITCAR   JSR READIT
@@ -676,12 +722,14 @@ WAITCAR   JSR READIT
           LDX LEN2
           CPX LEN
           BEQ FULL
+          LDA SLOTCARD
+          BPL INPUT1
           LDA TEMP
-          JSR SEND3
+INPUT1    JSR SEND3
           INC LEN2
           JMP WAITCAR
 FULL      LDA #BELL
-          JSR SENDIT
+          JSR SEND5
           JMP WAITCAR
 CARSEP    JSR READIT
           STA TEMP
@@ -696,15 +744,15 @@ CARSEP    JSR READIT
 CORRECT   LDA LEN2
           BEQ WAITCAR
           LDA #BS
-          JSR SENDIT
+          JSR SEND5
           LDA CARINP
-          JSR SENDIT
+          JSR SEND5
           LDA #BS
-          JSR SENDIT
+          JSR SEND5
           DEC LEN2
           JMP WAITCAR
 CARSEP3   LDA #17
-          JSR SENDIT
+          JSR SEND5
 CARSEP2   LDA #0
           STA LEN
           LDA TEMP
@@ -750,23 +798,17 @@ LOOP3     INY
           CPY #4
           BNE LOOP3
           LDY #0
-LOOP4     LDA $200,Y
+LOOP4     CPY LEN2
+          BEQ INPUTEND
+          LDA $200,Y
           STA (HIMEM),Y
           INY
-          CPY LEN2
           BNE LOOP4
-          RTS
-POSINP    LDA #US        ; POSITIONNE INPUT
-          JSR SENDIT
-          LDA XCOOR
-          CLC
-          ADC #$40
-          JSR SENDIT
+INPUTEND  RTS
+POSINP    LDA XCOOR
+          STA TEMP
           LDA YCOOR
-          CLC
-          ADC #$40
-          JSR SENDIT
-          RTS
+          JMP POSMNTL
 *
 *
 *
@@ -788,6 +830,7 @@ GET3      LDA #1
 DRAW      JSR WAIT2PT
           BEQ DRAWBIS
           JSR VALEUR
+          STA NOPAGE
           ASL
           ASL
           TAX
@@ -804,17 +847,21 @@ DRAW      JSR WAIT2PT
           STA DOSLEN+1
 DRAWBIS   LDA DOSADD
           STA TEMP
-          LDA DOSADD+1
-          STA TEMP2
-          LDA DOSADD
           CLC
           ADC DOSLEN
           STA LEN
           LDA DOSADD+1
+          STA TEMP2
           ADC DOSLEN+1
           STA LEN2
-DRAW1     LDY #0
+DRAW1     LDX #0
+          JSR BANKSEL
+          LDY #0
           LDA (TEMP),Y
+          PHA
+          LDX #2
+          JSR BANKSEL
+          PLA
           JSR SENDIT
           INC TEMP
           BNE DRAW2
@@ -843,7 +890,7 @@ STEPIN    STA TEMP2
 *
 * FINDSLOT DE L'APPLE-TELL
 *
-POINTL    = $82
+POINTL    = TEMP
 POINTH    = POINTL+1
                          ;
 FINDSLOT  LDA #$C700
