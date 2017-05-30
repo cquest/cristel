@@ -100,6 +100,7 @@ WAIT:     = 181
 XDRAW:    = 149
 LOAD:     = $B6
 DEL:      = $85
+IF:       = $AD
 *
 * COMMANDES ROM
 *
@@ -208,12 +209,12 @@ CMDNAME   DFB CLEAR:,COLOR:,DRAW:,END:,FLASH:,GET:,GR:
           DFB HCOLOR:,HOME:,POS:,INPUT:,INVERSE:,NORMAL:
           DFB TRACE:,NOTRACE:,PLOT:
           DFB PRINT:,READ:,SCALE:,STEP:,TEXT:,VTAB:,WAIT:,XDRAW:,LOAD:
-          DFB DEL:
+          DFB DEL:,IF:
 CMDADDR   DA CLEAR-1,COLOR-1,DRAW-1,END-1,FLASH-1,GET-1,GR-1
           DA HCOLOR-1,HOME-1,POS-1,INPUT-1,INVERSE-1,NORMAL-1
           DA TRACE-1,NOTRACE-1,PLOT-1
           DA PRINT-1,READ-1,SCALE-1,STEP-1,TEXT-1,VTAB-1,WAIT-1,XDRAW-1
-          DA LOAD-1,DEL-1
+          DA LOAD-1,DEL-1,IF-1
 *
 * POINT D'ENTREE ROM
 *
@@ -359,7 +360,7 @@ WAIT      JSR MSGOUT
           BCS WAIT2      ;TROUVEE ??
           JSR MSGOUT     ;MSG ERREUR
           HEX 0D
-          ASC "CARTE NON TROUVEE !"
+          ASC "PAS DE CARTE !"
           HEX 0D00
           JMP SYNTERR
 WAIT2     LDA SLOTCARD
@@ -398,7 +399,7 @@ WAIT2     LDA SLOTCARD
           BNE WAITOK
           JSR MSGOUT
           HEX 0D0D
-          ASC "PAS DE PORTEUSE"
+          ASC "PORTEUSE ?"
           HEX 0D00
           JMP WAIT
 WAITOK    JSR CLEAR
@@ -751,7 +752,7 @@ CORRECT   LDA LEN2
           JSR SEND5
           DEC LEN2
           JMP WAITCAR
-CARSEP3   LDA #17
+CARSEP3   LDA #20
           JSR SEND5
 CARSEP2   LDA #0
           STA LEN
@@ -812,6 +813,13 @@ POSINP    LDA XCOOR
 *
 *
 *
+IF        LDY #RCVSTAT
+          JSR ROM
+          AND #1
+          BNE GET
+          LDA #0
+          STA BUFFER
+          BEQ GET3
 GET       JSR READIT
           STA BUFFER
           CMP #SEP
