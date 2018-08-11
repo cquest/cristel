@@ -1,61 +1,62 @@
+          LST OFF
 ********************************
 *                              *
-* CRISTEL V 1.14  (C) Ch.QUEST *
-* --------------    16/10/85   *
+*          CRISTEL             *
 *                              *
-*  LOGICIEL DE COMMUNICATION   *
-*                              *
-*   POUR LA CARTE APPLE-TELL   *
-*                              *
-*    (ET LA CARTE TIME ][)     *
+* (C) Ch.QUEST   03/86         *
 *                              *
 ********************************
 *
 *
 *
+PRODOS    = 1
+BUFSEND   = 1
+EXPO      = 0            ; CONNEXION SPECIALE
 *
 *
 *
-          ORG $8880      ;(A CAUSE DU PLE)
-* (SINON ORG $9000)
+          DO PRODOS
+          ORG $805
+          ELSE
+          ORG $8D00
+          FIN
+*
 *
 * ADRESSES ROM ET PAGE ZERO UTILISEES
 *
 SYNTERR   = $DEC9        ;AFFICHE SYNTAX ERROR
-LOMEM     = $6D
+LINNUM    = $50
 HIMEM     = $6F
 FREE      = $73
-PTRVAR    = $83          ;ADRESSE DU PRTGET
-FAC       = $9D
-SPEED     = $F1
+FORPNT    = $85
 CHRGET    = $B1          ;LECTURE D'UN CHAR DU PRGM
 CHRGOT    = $B8          ;RELECTURE DERNIER CARAC
 ONERR     = $D8
 BUFFER    = $200
 AMPER     = $3F5
-HORL      = $C0F2        ;$C082+s0
-V1ON      = $C059
-V1OFF     = $C058
-V2ON      = $C05B
-V2OFF     = $C05A
-V3ON      = $C05D
-V3OFF     = $C05C
-DOSLEN    = $AA60        ;L$ (BLOAD,BSAVE)
-DOSADD    = $AA72        ;A$
-CSW       = $AA53        ;ADRESSES DES ROUTINES
-KSW       = $AA55        ;NORMAL D'AFFICHAGE (DOS)
-COUT      = $FDED        ;AFFICHAGE
-BASRUN    = $D566        ;RUN (ROM)
+HORL      = $C0C2        ;SLOT 4
+          DO PRODOS
+DOSCMD    = $BE03        ;EXECUTION COMMANDE DU PRODOS (BASIC)
+DOSLEN    = $BEC8        ;L$ (BLOAD,BSAVE)
+DOSADD    = $BE58        ;A$
+CSW       = $BE30        ;ADRESSES DES ROUTINES
+KSW       = $BE32        ;NORMAL D'AFFICHAGE (DOS)
+          ELSE
+DOSLEN    = $AA60
+DOSADD    = $AA72
+CSW       = $AA53
+KSW       = $AA55
+          FIN
+COUT      = $FDED
 BASERR    = $D412        ;GESTION DES ERREURS
+NEWSTT    = $D7D2
+GOTO      = $D941        ; GOTO EN (LINNUM)
+SAVD      = $DA9A
+CHKSTR    = $DD6C
 CHKCOM    = $DEBE        ;ATTEND UNE VIRGULE
-FINDVAR   = $DFE3        ;RECHERCHE UN VARIABLE
+MAK       = $E3E9
 WAITROM   = $FCA8        ;ROUTINE TEMPO (ROM)
-HOMEROM   = $FC58        ;HOME (ROM)
 PTRGET    = $DFE3        ;RECHERCHE VARIABLE
-GARBAGE   = $E484
-MOVFM     = $EAF9        ;TRANSFERT FAC>VARIABLE
-SETVAR    = $EB27        ; '' ''
-FLOAT     = $EB93        ;A => FAC
 PRINORM   = $FDF0
 NORINPUT  = $FD1B        ;ENTREE NORMALE D'UN CARACT
 PRINTROM  = $DAD5        ;PRINT (ROM)
@@ -64,7 +65,6 @@ PRINTROM  = $DAD5        ;PRINT (ROM)
 *
 SLOT16    = $6
 SLOTCARD  = $7
-STACKLVL  = $8
 TEMPOL    = $9
 TEMPOH    = $18
 TEMPO     = $19
@@ -77,6 +77,7 @@ YCOOR     = $1D
 LEN       = $1E
 CARINP    = $FE
 LEN2      = $CE
+MASK      = $FD
 *
 * TOKENS UTILISES
 *
@@ -108,25 +109,8 @@ LOAD:     = $B6
 DEL:      = $85
 IF:       = $AD
 ON:       = $B4
-*
-* COMMANDES ROM
-*
-INITUART  = 0
-MODESLCT  = 1
-DTAFORMT  = 2
-LINEREL   = 3
-VIDEOREL  = 4
-SETRTS    = 5
-EMITSTAT  = 6
-SENDCHAR  = 7
-RCVSTAT   = 8
-READCHAR  = 9
-ASCDIAL   = 10
-RINGTEST  = 11
-ANSWER    = 12
-SMARTCD   = 13
-CLEANUP   = 14
-BIGBELL   = 15
+AT:       = $C5
+HTAB:     = $96
 *
 * CODES VIDEOTEX
 *
@@ -175,21 +159,38 @@ INIT      LDA #DEBUT
           STA AMPER
           LDA #32
           STA CARINP
-          LDA #INIT
-          STA FREE
-          LDA #/INIT
-          STA FREE+1
           LDA #0
           STA XCOOR
-          BIT V1OFF
-          BIT V2OFF
-          BIT V3OFF
+          DO PRODOS
+          LDA #ENDCRIS
+          STA $67
+          LDA #/ENDCRIS
+          STA $68
+          LDA #ENDCRIS+3
+          STA $69
+          STA $6B
+          STA $6D
+          LDA #/ENDCRIS+3
+          STA $6A
+          STA $6C
+          STA $6E
+          ELSE
+          LDA #INIT
+          STA FREE
+          STA HIMEM
+          LDA #/INIT
+          STA FREE+1
+          STA HIMEM+1
+          FIN
           RTS
+FILTER1   HEX 0E0F1B1E1F220D000000000000000000
+FILTER2   HEX 00000000000000000000000000000000
 CARSEND   HEX 00
 CAREP     HEX 00
 NBREP     HEX 00
 NORPRINT  HEX 0000
 NOPAGE    HEX 00
+STACKLVL  HEX 00
 *
 * PRGM
 *
@@ -219,16 +220,24 @@ CMDNAME   DFB CLEAR:,COLOR:,DRAW:,END:,FLASH:,GET:,GR:
           DFB HCOLOR:,HOME:,POS:,INPUT:,INVERSE:,NORMAL:
           DFB TRACE:,NOTRACE:,PLOT:
           DFB PRINT:,READ:,SCALE:,STEP:,TEXT:,VTAB:,WAIT:,XDRAW:,LOAD:
-          DFB DEL:,IF:,ON:
+          DFB DEL:,IF:,ON:,AT:,HTAB:
 CMDADDR   DA CLEAR-1,COLOR-1,DRAW-1,END-1,FLASH-1,GET-1,GR-1
           DA HCOLOR-1,HOME-1,POS-1,INPUT-1,INVERSE-1,NORMAL-1
           DA TRACE-1,NOTRACE-1,PLOT-1
           DA PRINT-1,READ-1,SCALE-1,STEP-1,TEXT-1,VTAB-1,WAIT-1,XDRAW-1
-          DA LOAD-1,DEL-1,IF-1,ON-1
+          DA LOAD-1,DEL-1,IF-1,ON-1,AT-1,HTAB-1
 *
-* POINT D'ENTREE ROM
+******************************
+*                            *
+* CETTE PARTIE EST UN 'BIOS' *
+*                            *
+* APPELE PAR TOUTES LES FONC-*
+*                            *
+* TIONS DE CRISTEL..         *
+*                            *
+******************************
 *
-ROM       JMP $C211
+          PUT BIOS.DTL2100+
 *
 * ROUTINE MSGOUT
 *
@@ -253,12 +262,31 @@ MSG4      LDA TEMP+1
 *
 *
 *
+CSWNORM   LDA NORPRINT
+          STA CSW
+          LDA NORPRINT+1
+          STA CSW+1
+          RTS
+*
+CSWCRIS   LDA CSW
+          STA NORPRINT
+          LDA CSW+1
+          STA NORPRINT+1
+          STX CSW
+          STY CSW+1
+          RTS
+*
+*
+*
 INTERUPT  PHA
           TXA
           PHA
           TYA
           PHA
           JSR INT
+          DO BUFSEND
+          JSR SENDINT
+          FIN
           PLA
           TAY
           PLA
@@ -273,46 +301,57 @@ INT       LDA FINBUF
           SBC DEBUTBUF
           CMP #$FF
           BEQ INTRTS
-          LDY #RCVSTAT
-          JSR ROM
-          AND #1
+          JSR CARECU
           BEQ INTRTS
-          LDY #READCHAR
-          BIT V1ON
-          JSR ROM
-          JSR SCROLLR
-          AND #$7F
-          PHA
-          BIT V1OFF
-          PLA
+          JSR RECOICAR
+          LDY #0
+          JSR SCROLL
           CMP #CR
-          BEQ RESET?
-RETINT    JSR STABUF
-          INC FINBUF
-          BNE INT
-*
-STABUF    BIT $C089
-          BIT $C089
+          BNE RETINT
+          LDX KSW
+          CPX #NORINPUT
+          BEQ RETINT
+          JMP $3D0
+RETINT    BIT $C081
+          BIT $C081
           HEX 8D
 FINBUF    HEX 00
           HEX D0
           BIT $C08A
-          RTS
+          INC FINBUF
+          JMP INT
 *
-LDABUF    BIT $C088
-          BIT $C088
+*
+*
+          DO BUFSEND
+SENDINT   LDA SENDBEG
+          CMP SENDEND
+          BNE SICONT
+          LDA SENDBEG+1
+          CMP SENDEND+1
+          BNE SICONT
+          RTS
+SICONT    JSR SENDCLEA
+          BNE SICONT2
+          RTS
+SICONT2   BIT $C080
+          BIT $C080
           HEX AD
-DEBUTBUF  HEX 00
-          HEX D0
+SENDBEG   HEX 00D1
           BIT $C08A
-          RTS
-*
-*
-
-RESET?    LDX KSW
-          CPX #NORINPUT
-          BEQ RETINT
-RESET     JMP $3D0       ;INTDOS !!!
+          LDY #$80
+          JSR SCROLL
+          JSR ENVOICAR
+          INC SENDBEG
+          BNE SI3
+          INC SENDBEG+1
+          LDA SENDBEG+1
+          CMP #$E0
+          BNE SI3
+          LDA #$D1
+          STA SENDBEG+1
+SI3       RTS
+          FIN
 *
 *
 *
@@ -321,6 +360,17 @@ LOOPON    LDA BFR1,X
           STA CHRGET,X
           DEX
           BPL LOOPON
+RAZBUF    LDA #0
+          STA FINBUF
+          STA DEBUTBUF
+          DO BUFSEND
+RAZSEND   LDA #0
+          STA SENDBEG
+          STA SENDEND
+          LDA #$D1
+          STA SENDBEG+1
+          STA SENDEND+1
+          FIN
           RTS
 BFR1      HEX 20
           DA INTERUPT
@@ -332,7 +382,7 @@ LOOPOFF   LDA BFR2,X
           STA CHRGET,X
           DEX
           BPL LOOPOFF
-          RTS
+          BMI RAZBUF
 BFR2      INC CHRGOT
           BNE WAIT2PT
           INC CHRGOT+1
@@ -353,7 +403,10 @@ SENDESC   STA TEMP
           LDA TEMP
           JMP SEND5
 SENDIT    STA CARSEND
-          LDA XCOOR
+          JSR FILTSEND
+          BCC SENDCHR
+          RTS
+SENDCHR   LDA XCOOR
           CMP #$FF
           BEQ SEND1
           JSR PORTEUSE
@@ -386,14 +439,42 @@ SEND2     LDA #0
           STA NBREP
           LDA CARSEND
           STA CAREP
-SEND3     PHA
-          JSR SCROLLS
-          BIT V2ON
-          PLA
-          LDY #SENDCHAR
-          JSR ROM
-          BIT V2OFF
+          DO BUFSEND
+SEND3     CMP #$0C       ; EFFACE ECRAN...
+          BNE SD
+          JSR RAZSEND
+          LDA #CAN
+          JSR ENVOICAR
+          LDA #FF
+          JSR ENVOICAR
+          JMP SD2
+SD        BIT $C081
+          BIT $C081
+          HEX 8D
+SENDEND   HEX 00D1
+          BIT $C08A
+          INC SENDEND
+          BNE SD2BIS
+          INC SENDEND+1
+          LDA SENDEND+1
+          CMP #$E0
+          BNE SD2BIS
+          LDA #$D1
+          STA SENDEND+1
+SD2BIS    LDA SENDEND
+          CMP SENDBEG
+          BNE SD2
+          LDA SENDEND+1
+          CMP SENDBEG+1
+          BNE SD2
+          JSR SICONT2
+SD2       JMP INT
+          ELSE
+SEND3     LDY #$80
+          JSR SCROLL
+          JSR ENVOICAR
           JMP INT
+          FIN
 SEND5     STA CARSEND
           JSR SEND6
           LDA #0
@@ -402,140 +483,138 @@ SEND5     STA CARSEND
 *
 *
 *
-SCROLLS   PHA
-          LDY #0
-SCLOOP2   LDA $481,Y
-          STA $480,Y
+SCROLL    PHA
+          LDX #0
+SCLOOP2   LDA $401,Y
+          STA $400,Y
           INY
-          CPY #39
+          INX
+          CPX #39
           BNE SCLOOP2
           PLA
-          JSR CONTROL
-          STA $4A7
-          RTS
-*
-*
-*
-CONTROL   AND #$7F
-          CMP #$1F
-          BMI CONRTS
+          AND #$7F
+          CMP #$20
+          BMI CONTRTS
           ORA #$80
-CONRTS    RTS
-*
-*
-*
-PORTEUSE  LDY #RCVSTAT
-          JSR ROM
-          AND #%00001000
-          BEQ LOST
+CONTRTS   STA $400,Y
+          AND #$7F
           RTS
 *
 *
 *
-READIT    JSR READIT2
-          LDX #READIT2-FILTBL-1
-READIT3   CMP FILTBL,X
-          BEQ READIT
-          DEX
-          BPL READIT3
-          RTS
-FILTBL    HEX 1B070300
-READIT2   LDA FINBUF
+READIT    LDA FINBUF
           CMP DEBUTBUF
           BEQ READOLD
-          JSR LDABUF
+          BIT $C080
+          BIT $C080
+          HEX AD
+DEBUTBUF  HEX 00
+          HEX D0
+          BIT $C08A
           INC DEBUTBUF
           RTS
 READOLD   LDA #0
           STA TEMPOL
           STA TEMPOH
-          LDA #-11
+          LDA #-66
           STA SLOT16
-WAITCHAR  LDY #RCVSTAT
-          JSR ROM
-          STA TEMPO
-          AND #%00001000
-          BEQ LOST
-          LDA TEMPO
-          AND #%00000001
+WAITCHAR  JSR CARECU
           BNE RECEIVED
+          DO BUFSEND
+          JSR SENDINT
+          FIN
           INC TEMPOL
           BNE WAITCHAR
           INC TEMPOH
           BNE WAITCHAR
-          INC SLOT16
+          JSR PORTEUSE
+          LDA SLOT16
+          CMP #-15
+          BNE WT2
+          LDA #BELL
+          JSR ENVOICAR
+WT2       INC SLOT16
           BNE WAITCHAR
 LOST      JSR END
           LDX STACKLVL
           TXS
+          DO BUFSEND
           LDA KSW
           CMP #NORINPUT
           BEQ LOST2
           JMP $C600
-LOST2     BIT ONERR
-          BMI ERROR
-          JMP BASRUN
-RECEIVED  BIT V1ON
-          LDY #READCHAR
-          JSR ROM
-          PHA
-          BIT V1OFF
-          PLA
-          JSR SCROLLR
+          FIN
+LOST2     LDA #500
+          STA LINNUM
+          LDA #/500
+          STA LINNUM+1
+          JSR GOTO
+          JMP NEWSTT
+RECEIVED  JSR RECOICAR
+          JSR FILTRCVD
+          BCS WAITCHAR
+          LDY #0
+          JSR SCROLL
           AND #$7F
           RTS
-ERROR     LDA #17
-          JMP BASERR
 *
 *
 *
-SCROLLR   ORA #$80
-          PHA
-          LDY #0
-SCLOOP    LDA $401,Y
-          STA $400,Y
+FILTRCVD  LDY #0
+F1LOOP    CMP FILTER1,Y
+          BEQ F1BAD
+          LDX FILTER1,Y
+          BEQ F1GOOD
           INY
-          CPY #39
-          BNE SCLOOP
-          PLA
-          JSR CONTROL
-          STA $427
+          CPY #16
+          BNE F1LOOP
+F1GOOD    CLC
           RTS
+F1BAD     SEC
+          RTS
+*
+FILTSEND  LDY #0
+F2LOOP    CMP FILTER2,Y
+          BEQ F1BAD
+          LDX FILTER2,Y
+          BEQ F1GOOD
+          INY
+          CPY #16
+          BNE F2LOOP
+          BEQ F1GOOD
+*
+*
+*
+NEXTVAL   JSR CHKCOM
 VALEUR    JSR $E6F8
           LDA $A1
           RTS
 *
-*
-*
-OUTMEM    LDA #77
-          JMP BASERR
-*
 * PRISE DE MAIN PAR LE MINITEL...
 *
+          DO BUFSEND
 ON        JSR VALEUR
           BEQ OFF
-          LDA #SAVPRINT
-          STA CSW
-          LDA #/SAVPRINT
-          STA CSW+1
+          LDX #SAPRINT2
+          LDY #/SAPRINT2
+          JSR CSWCRIS
           LDA #ON2
           STA KSW
           LDA #/ON2
           STA KSW+1
-          JSR HOME
-          JSR CLEAR
           LDA #1
           JSR STEPIN
           LDA #17
-          JMP SENDIT
-OFF       LDA #PRINORM
-          STA CSW
-          LDA #/PRINORM
-          STA CSW+1
-          LDA #NORINPUT
+          JSR SENDIT
+          JMP CLEAR
+OFF       LDA #NORINPUT
           STA KSW
           LDA #/NORINPUT
           STA KSW+1
+          LDA #PRINORM
+          STA CSW
+          LDA #/PRINORM
+          STA CSW+1
           RTS
 ONVAR     HEX 0000
 ON2       STX ONVAR
@@ -564,90 +643,64 @@ ON4       CPX #3
 ON5       JSR READIT
           AND #$1F
           JMP ONRTS
+          ELSE
+ON        RTS
+          FIN
 *
 * WAIT: INITIALISATION ET ATTENTE
 *
 WAIT      JSR MSGOUT
           ASC 'ATTENTE'
           HEX 0D00
-          BIT V3OFF
-          JSR FINDSLOT   ;CHERCHE LA CARTE
-          BCS WAIT2      ;TROUVEE ??
-          JSR MSGOUT     ;MSG ERREUR
-          HEX 0D
-          ASC "PAS DE CARTE !"
-          HEX 0D00
-          JMP SYNTERR
-WAIT2     LDA SLOTCARD
-          STA ROM+2
-          LDA #0
-          STA DOSLEN
-          STA DOSLEN+1
-          STA DOSADD
-          STA DOSADD+1
-          LDY #INITUART  ;RAZ CARTE
-          LDA #$07
-          JSR ROM
-          LDY #LINEREL
-          LDA #0
-          JSR ROM        ;RACCROCHE
-          BIT $C010
-          LDY #BIGBELL
-          LDA #0
-          JSR ROM        ;WAITS FOR RING
-          LDY #LINEREL
-          LDA #$FF
-          JSR ROM        ;DECROCHE
-          BIT V3ON
-          LDY #DTAFORMT  ;SETS DATA FORMAT
-          LDA #%00100111 ;TO 7 BITS 1 STOP
-          JSR ROM        ;EVEN PARITY
-          LDY #ANSWER
-          JSR ROM        ;CONNEXION TYPE CCITT V23
-          LDY #SETRTS
-          LDA #1
-          JSR ROM        ;SEND CARRIER
-          BIT $C010
-          LDY #SMARTCD
-          LDA #76        ;CHERCHE PORTEUSE
-          LDX #170       ;PENDANT 30s
-          JSR ROM        ;PORTEUSE: 1,7s
-          BNE WAITOK
-          JSR MSGOUT
-          HEX 0D0D
-          ASC "PORTEUSE ?"
-          HEX 0D00
-          JMP WAIT
-WAITOK    JSR CLEAR
-          JSR BFRON
-          LDA #0
-          JSR STEPIN
-          JMP HOME       ;CONNEXION OK
+          JSR INITMDM
+          JSR CONNECT
+WAITOK    JSR BFRON
+          LDA #$80
+          STA MASK
+          JSR HOME
+          LDY #5
+WTLOOP    LDA #$FF
+          JSR WAITROM
+          DEY
+          BPL WTLOOP
 *
 *
 *
 CLEAR     LDA #0
           STA FINBUF
           STA DEBUTBUF
-          LDY #CLEANUP
-          JMP ROM
+          JMP CLEARCV
 *
 *
 *
-HOME      LDA #FF        ;EFFACE ECRAN MINITEL
+HOME      JSR SENDMSG
+          HEX 0C1F4041182012641B5D
+          ASC 'JCA'
+          HEX 1B5C1EFF
+          RTS
+*
+*
+*
+HTAB      LDA #CR
           JSR SENDIT
-          LDA #0
+          JSR VALEUR
+          STA LEN2
+          LDA #HT
           STA TEMP
-          JSR POS1
-          JSR DEL2
-          LDA #RS        ;RETOUR 'HOME'
-          JMP SEND5
+          JMP PLOTLOOP
 *
 *
 *
-VTAB      JSR VALEUR
+VTAB
+*
+*
+POS       JSR VALEUR
           STA TEMP
-POS1      LDA #1
+          JSR WAIT2PT
+          BEQ POS2
+          JSR NEXTVAL
+          JMP POSMNTL
+POS2      LDA #1
 POSMNTL   STA TEMP2
           LDA #US
           JSR SEND5
@@ -662,29 +715,23 @@ POSMNTL   STA TEMP2
 *
 *
 *
-POS       JSR VALEUR
-          STA TEMP
-          JSR WAIT2PT
-          BEQ POS2
-          JSR CHKCOM
-          JSR VALEUR
-          JMP POSMNTL
-POS2      LDA #1
-          JMP POSMNTL
-*
-*
-*
-*
-*
 DEL       JSR POS
+          JSR WAIT2PT
+          BNE DELBIS
 DEL2      LDA #CAN
           JMP SEND5
+DELBIS    LDA #0
+          JSR HCOLOR2
+          LDA #32
+          STA TEMP
+          JSR NEXTVAL
+          JMP PLOT3
 *
 *
 *
 LOAD      JSR VALEUR
+          AND #7
           STA NOPAGE
-          ASL
           ASL
           PHA
           JSR CHKCOM
@@ -693,20 +740,46 @@ LOAD      JSR VALEUR
           TAX
           LDA DOSADD
           STA DOSTABL,X
-          INX
           LDA DOSADD+1
-          STA DOSTABL,X
-          INX
-          LDA DOSLEN
-          STA DOSTABL,X
-          INX
-          LDA DOSLEN+1
-          STA DOSTABL,X
+          STA DOSTABL+1,X
           RTS
-DOSTABL   DS 32
+DOSTABL   DS 16
 *
 *
 *
+          DO PRODOS
+BLOAD     LDX #BLOPRINT
+          LDY #/BLOPRINT
+          JSR CSWCRIS
+          LDX #5
+BLOOP     LDA BLODTBL-1,X
+          STA BUFFER-1,X
+          DEX
+          BNE BLOOP
+          LDA #5
+          STA LEN
+          JSR PRINTROM
+          JSR CSWNORM
+          JSR DOSCMD
+          LDA DOSADD
+          CLC
+          ADC DOSLEN
+          STA ENDPAGE+1
+          LDA DOSADD+1
+          ADC DOSLEN+1
+          STA ENDPAGE+2
+          LDA #$FF
+ENDPAGE   STA ENDPAGE
+          RTS
+BLODTBL   HEX C2CCCFC1C4 ;'BLOAD'
+BLOPRINT  STX TEMP2
+          LDX LEN
+          ORA #$80
+          STA $200,X
+          INC LEN
+          LDX TEMP2
+          RTS
+          ELSE
 BLOAD     JSR MSGOUT
           HEX 0D04
           ASC 'BLOAD'
@@ -735,6 +808,7 @@ BANKSEL   TXA
 RAM2      JSR RAM
 RAM       LDA $C080
           RTS
+          FIN
 *
 *
 *
@@ -763,7 +837,7 @@ COLOR     JSR VALEUR
 *
 *
 HCOLOR    JSR VALEUR
-          CLC
+HCOLOR2   CLC
           ADC #$50
           JMP SENDESC
 *
@@ -779,6 +853,7 @@ GR        LDA #SO
 *
 *
 *
+          DO BUFSEND
 READ      LDY #19
 READLOOP  LDA TABHORL,Y
           BMI READ2
@@ -820,31 +895,30 @@ HORL3     CLC
 TABCAR    ASC '- /'
 TABHORL   HEX 2524802322802120818181812827822A29822C2B
 TABJOUR   ASC 'DILUMAMEJEVESA'
+          ELSE
+READ      RTS
+          FIN
 *
+*
+*
+AT        JSR POS
+          JSR CHKCOM
 *
 *
 PRINT     LDA #$FF
           STA XCOOR
+          JSR PORTEUSE
           JSR WAIT2PT
           BEQ PRINT3
           LDA #0
           STA TEMP
-          LDA CSW
-          STA NORPRINT
-          LDA CSW+1
-          STA NORPRINT+1
-          LDA #SAVPRINT
-          STA CSW
-          LDA #/SAVPRINT
-          STA CSW+1
+          LDX #SAVPRINT
+          LDY #/SAVPRINT
+          JSR CSWCRIS
           JSR PRINTROM
-PRINERR   LDA NORPRINT
-          STA CSW
-          LDA NORPRINT+1
-          STA CSW+1
-          LDA #0
+PRINERR   LDA #0
           STA XCOOR
-          RTS
+          JMP CSWNORM
 SAVPRINT  AND #%01111111
           PHA
           JSR PRINTIT
@@ -852,6 +926,10 @@ SAVPRINT  AND #%01111111
           CMP #CR
           BEQ CROUT
           RTS
+SAPRINT2  PHA
+          JSR PRINORM
+          PLA
+          JMP SAVPRINT
 CROUT     LDA #LF
 PRINTIT   STX LEN
           STY TEMP2
@@ -874,12 +952,7 @@ SCALE     JSR VALEUR
 *
 *
 END       JSR BFROFF
-          BIT V3OFF
-          BIT V2OFF
-          BIT V1OFF
-          LDY #LINEREL
-          LDA #0
-          JMP ROM        ;RACCROCHE
+          JMP RACCROCH
 *
 *
 *
@@ -894,45 +967,44 @@ NOTRACE   LDA #NOLINE
 *
 *
 PLOT      JSR VALEUR
+PLOT2     STA TEMP
+          JSR NEXTVAL
+          STA LEN
+PLOTIN    LDA LEN
+PLOT3     STA LEN2
+PLOTLOOP  DEC LEN2
+          BMI PLOTRTS
+          LDA TEMP
           JSR SENDIT
-          JSR CHKCOM
-          LDA #REP
-          JSR SENDIT
-          JSR VALEUR
-          ADC #$3E
-          JMP SENDIT
+          JMP PLOTLOOP
+PLOTRTS   RTS
 *
 *
 *
 XDRAW     LDA #0
           STA NOPAGE
           JSR BLOAD
-          JMP DRAWBIS
+          JMP LASTDRAW
 *
 *
 *
-INPUT     JSR VALEUR
-          STA XCOOR
+INPUT     LDY #0
+          LDA (CHRGOT),Y
+          CMP #AT:
+          BEQ INP2
+          JSR POS
           JSR CHKCOM
-          JSR VALEUR
-          STA YCOOR
-          JSR CHKCOM
-          JSR VALEUR
+          JMP INP3
+INP2      JSR CHRGET
+INP3      JSR VALEUR
           STA LEN
           JSR CHKCOM
-          JSR POSINP
-          LDA CARINP
-INPUTIN   JSR SEND5
-          LDA LEN
-          CMP #1
-          BEQ ONLY1
-          LDA #REP
-          JSR SEND5
-          LDA LEN
-          CLC
-          ADC #$3F
-          JSR SEND5
-ONLY1     JSR POSINP     ;CURSOR = ON
+INPUTIN   LDA CARINP
+          STA TEMP
+          JSR PLOTIN
+          LDA #BS
+          STA TEMP
+          JSR PLOTIN
           LDA #CSRON
           JSR SEND5
           LDA #0
@@ -947,7 +1019,7 @@ WAITCAR   JSR READIT
           LDX LEN2
           CPX LEN
           BEQ FULL
-          LDA SLOTCARD
+          LDA MASK
           BPL INPUT1
           LDA TEMP
 INPUT1    JSR SEND3
@@ -963,8 +1035,11 @@ CARSEP    JSR READIT
           LDA TEMP
           CMP #ANNULATI
           BNE CARSEP3
-          JSR POSINP
-          LDA CARINP
+          LDA #CSROFF
+          JSR SENDIT
+          LDA #BS
+          STA TEMP
+          JSR PLOTLOOP
           JMP INPUTIN
 CORRECT   LDA LEN2
           BEQ WAITCAR
@@ -983,66 +1058,41 @@ CARSEP2   LDA #0
           LDA TEMP
           AND #$F
           STA $FF
-LOOP2     LDA HIMEM
-          SEC
-          SBC LOMEM
-          SEC
-          SBC LEN2
-          STA TEMP
-          LDA HIMEM+1
-          SBC LOMEM+1
-          STA TEMP2
-          BCS LOOPOK
-          LDA LEN
-          CMP #1
-          BNE LOOP5
-          JMP OUTMEM
-LOOP5     INC LEN
-          JSR GARBAGE
-          JMP LOOP2
-LOOPOK    LDA HIMEM
-          SEC
-          SBC LEN2
-          STA HIMEM
-          LDA HIMEM+1
-          SBC #0
-          STA HIMEM+1
+          LDA #$8D
+          LDY LEN2
+          STA BUFFER,Y
           JSR PTRGET
-          LDY #0
-          LDA LEN2
-          STA (PTRVAR),Y
-          INY
-          LDA HIMEM
-          STA (PTRVAR),Y
-          INY
-          LDA HIMEM+1
-          STA (PTRVAR),Y
-LOOP3     INY
-          LDA #0
-          STA (PTRVAR),Y
-          CPY #4
-          BNE LOOP3
-          LDY #0
-LOOP4     CPY LEN2
-          BEQ INPUTEND
-          LDA $200,Y
-          STA (HIMEM),Y
-          INY
-          BNE LOOP4
-INPUTEND  RTS
-POSINP    LDA XCOOR
-          STA TEMP
-          LDA YCOOR
-          JMP POSMNTL
+          JSR CHKSTR
+          STA FORPNT
+          STY FORPNT+1
+          LDA #BUFFER
+          LDY #/BUFFER
+          LDX #$8D
+          JSR MAK
+          JMP SAVD
 *
 *
 *
+          DO BUFSEND
+IF        JSR WAIT2PT
+          BNE IFNORM
+IFLOOP    LDA SENDBEG
+          CMP SENDEND
+          BNE CONTSEND
+          LDA SENDEND+1
+          CMP SENDBEG+1
+          BNE CONTSEND
+          RTS
+CONTSEND  JSR SENDINT
+          JSR INT
+          JMP IFLOOP
+IFNORM    LDA FINBUF
+          ELSE
 IF        LDA FINBUF
+          FIN
           CMP DEBUTBUF
           BNE GET
-          LDY #RCVSTAT
-          JSR ROM
-          AND #1
+          JSR CARECU
           BNE GET
           LDA #0
           STA BUFFER
@@ -1062,34 +1112,42 @@ GET3      LDA #1
 *
 *
 *
-DRAW      JSR WAIT2PT
-          BEQ DRAWBIS
+DRAW      LDA CSROFF
+          JSR SENDIT
+          JSR WAIT2PT
+          BEQ LASTDRAW
           JSR VALEUR
+          AND #7
           STA NOPAGE
           ASL
-          ASL
           TAX
+          LDA DOSTABL+1,X
+          STA TEMP+1
           LDA DOSTABL,X
-          STA DOSADD
-          INX
-          LDA DOSTABL,X
-          STA DOSADD+1
-          INX
-          LDA DOSTABL,X
-          STA DOSLEN
-          INX
-          LDA DOSTABL,X
-          STA DOSLEN+1
-DRAWBIS   LDA DOSADD
+SENDPAGE  STA TEMP
+          JMP SMSG3
+LASTDRAW  LDA DOSADD+1
+          STA TEMP+1
+          LDA DOSADD
+          JMP SENDPAGE
+SENDMSG   PLA
           STA TEMP
-          CLC
-          ADC DOSLEN
-          STA LEN
-          LDA DOSADD+1
-          STA TEMP2
-          ADC DOSLEN+1
-          STA LEN2
-DRAW1     LDX #0
+          PLA
+          STA TEMP+1
+          JSR SMSG2
+          LDA TEMP+1
+          PHA
+          LDA TEMP
+          PHA
+          RTS
+SMSG2     INC TEMP
+          BNE SMSG3
+          INC TEMP+1
+          DO PRODOS
+SMSG3     LDY #0
+          LDA (TEMP),Y
+          ELSE PRODOS
+SMSG3     LDX #0
           JSR BANKSEL
           LDY #0
           LDA (TEMP),Y
@@ -1097,17 +1155,11 @@ DRAW1     LDX #0
           LDX #2
           JSR BANKSEL
           PLA
+          FIN PRODOS
+          BMI SMSG4
           JSR SENDIT
-          INC TEMP
-          BNE DRAW2
-          INC TEMP2
-DRAW2     LDA TEMP
-          CMP LEN
-          BNE DRAW1
-          LDA TEMP2
-          CMP LEN2
-          BNE DRAW1
-          RTS
+          JMP SMSG2
+SMSG4     RTS
 *
 *
 *
@@ -1121,40 +1173,5 @@ STEPIN    STA TEMP2
           JSR SENDIT
           LDA #'C'
           JMP SENDIT
-
-*
-* FINDSLOT DE L'APPLE-TELL
-*
-POINTL    = TEMP
-POINTH    = POINTL+1
-                         ;
-FINDSLOT  LDA #$C700
-          STA POINTL
-          LDX #/$C700      ;commencer en slot 7
-FIND1     STX POINTH
-          LDY #$0B        ;tester l'octet de signature generique
-          LDA #$01        ;signature generique des cartes avec firmware
-          CMP (POINTL),Y
-          BNE FIND3       ;pas bon
-          CMP (POINTL),Y
-          BNE FIND3       ;pas bon la deuxieme fois...
-          INY             ;tester notre signature de peripherique
-          LDA #$49        ;signature de l'APPLE-TELL
-          CMP (POINTL),Y
-          BNE FIND3       ;pas bonne
-          CMP (POINTL),Y  ;deuxieme essai...
-FIND3     STA $CFFF       ;debrancher la ROM d'extension
-          BEQ FIND2       ;on a trouve...
-          DEX
-          CPX #/$C100      ;en est-on plus loin que le slot 1 ?
-          BCS FIND1       ;non, essayer encore
-          RTS
-FIND2     TXA
-          STA SLOTCARD
-          ASL
-          ASL
-          ASL
-          ASL
-          STA SLOT16
-          SEC
-          RTS             ;carte trouvee, retour avec C=1
+          HEX 00
+ENDCRIS   HEX 00
